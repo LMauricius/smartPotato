@@ -103,23 +103,3 @@ class Texture:
             return other
         else:
             return Texture(im.blend(self.image, other.image, alpha))
-
-    # def transformPadWrap(self, padWidth: int, padHeight: int) -> "Texture":
-
-    def transformWrapped(self, x: float, y: float) -> "Texture":
-        """
-        Returns a copy of this texture shifted by the specified amount.
-        The image wraps around the edges when shifted.
-        """
-        # Get the dimensions of the original image
-        width, height = self.image.size
-
-        # Calculate the new coordinates after shifting
-        new_x = (self.x + x) % width
-        new_y = (self.y + y) % height
-
-        # Crop the image to the new coordinates
-        cropped_image = self.image.crop((new_x, new_y, new_x + width, new_y + height))
-
-        # Create a new texture with the cropped image
-        return Texture(cropped_image)

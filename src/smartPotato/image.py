@@ -31,7 +31,7 @@ class ImageHandler:
         width, height = self.texture.image.size
         return self.texture, ConversionData(width, height, 1.0)
 
-    def reduce(self, minquality: float) -> tuple[Texture, ConversionData] | None:
+    def reduce(self, minquality: float) -> tuple[Texture, ConversionData]:
         # We will use a special method consisting of sharpening the image,
         # reducing its resolution and then increasing its detail by a variable amount.
 

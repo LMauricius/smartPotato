@@ -2,18 +2,18 @@ from PIL import Image as im
 from dataclasses import dataclass
 import os
 
-from texture import *
+from .texture import *
+
+# Get a set of supported file extensions
+supported_extensions = {
+    extension.lower() for extension, _ in im.registered_extensions().items()
+}
 
 
 def isSupportedImage(file_path):
-    # Get a set of supported file extensions
-    supported_extensions = {
-        extension.lower() for extension, _ in im.registered_extensions()
-    }
-
     # Check if the file has a supported extension
     _, file_extension = os.path.splitext(file_path)
-    return file_extension[1:].lower() in supported_extensions
+    return file_extension.lower() in supported_extensions
 
 
 @dataclass
@@ -31,7 +31,9 @@ class ImageHandler:
         width, height = self.texture.image.size
         return self.texture, ConversionData(width, height, 1.0)
 
-    def reduce(self, minquality: float) -> tuple[Texture, ConversionData]:
+    def reduce(
+        self, minwidth: int, minheight: int, minquality: float
+    ) -> tuple[Texture, ConversionData]:
         # We will use a special method consisting of sharpening the image,
         # reducing its resolution and then increasing its detail by a variable amount.
 
@@ -41,7 +43,11 @@ class ImageHandler:
         newTex = curTex
         newQual = curQual
 
-        while newQual > minquality:
+        while (
+            newQual > minquality
+            and newTex.image.width > minwidth
+            and newTex.image.height > minheight
+        ):
             # accept the new texture
             curTex = newTex
             curQual = newQual

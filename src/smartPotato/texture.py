@@ -3,7 +3,7 @@ from imgbeddings import imgbeddings
 import math
 import numpy as np
 
-from calc import *
+from .calc import *
 
 # globals for embedding generation
 ibed = imgbeddings()
@@ -43,6 +43,10 @@ class Texture:
         """
 
         def rescale(a):
+            if a >= 0.9999999:
+                a = 0.9999999
+            elif a <= -0.9999999:
+                a = -0.9999999
             return 1.0 - math.sin(math.acos(a))
 
         return rescale(

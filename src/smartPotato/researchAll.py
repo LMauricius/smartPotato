@@ -1,6 +1,6 @@
 from curses import nonl
-from image import *
-from texture import *
+from .image import *
+from .texture import *
 
 from collections import defaultdict
 

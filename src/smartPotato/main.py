@@ -229,7 +229,7 @@ def main():
 
                         # create the directory structure if it doesn't exist
                         os.makedirs(os.path.dirname(outpath), exist_ok=True)
-                        newtex.image.save(outpath)
+                        handler.saveReplacement(newtex, outpath)
                 except Exception as e:
                     print(
                         f"Error processing {f.filepath}: {e}",

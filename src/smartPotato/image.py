@@ -1,6 +1,10 @@
 from PIL import Image as im
 from dataclasses import dataclass
+from os import path as pt
+import io
 import os
+import wand.image as wimage
+import quicktex.dds as qtx
 
 from .texture import *
 
@@ -25,11 +29,61 @@ class ConversionData:
 
 class ImageHandler:
     def __init__(self, file_path):
-        self.texture = Texture(im.open(file_path))
+        self.filepath = file_path
+        if pt.splitext(self.filepath)[1].lower() == ".dds":
+            try:
+                dds_image = qtx.read(self.filepath)
+                dds_image.format
+
+                wand_image = wimage.Image(filename=self.filepath)
+                self._compression = wand_image.compression
+                self._colorspace = wand_image.colorspace
+                self._compression_quality = wand_image.compression_quality
+                self._img_options = wand_image.options
+                img_blob = wand_image.make_blob("bmp")
+                assert img_blob is not None
+                self.texture = Texture(im.open(io.BytesIO(img_blob)))
+                print(
+                    f"Special DDS handled (loading) compression {self._compression} quality {self._compression_quality} colorspace {self._colorspace}"
+                )
+            except Exception as e:
+                print(f"Failed to load special DDS: {e}")
+                print("Defaulting to PIL loading")
+                self._compression = "dxt5"
+                self._colorspace = "srgb"
+                self._compression_quality = 1.0
+                self._img_options = {
+                    "dds:compression": self._compression,
+                    "dds:mipmaps": "8",
+                    "dds:cluster-fit": "false",
+                }
+                self.texture = Texture(im.open(file_path))
+        else:
+            self.texture = Texture(im.open(file_path))
 
     def getIdentityData(self) -> tuple[Texture, ConversionData]:
         width, height = self.texture.image.size
         return self.texture, ConversionData(width, height, 1.0)
+
+    def saveReplacement(self, texture: Texture, path: str):
+        self.texture = texture
+
+        if pt.splitext(self.filepath)[1].lower() == ".dds":
+            temp = io.BytesIO()
+            self.texture.image.save(temp, format="bmp")
+            wand_image = wimage.Image(blob=temp.getvalue())
+            wand_image.compression = self._compression
+            # wand_image.compression_quality = self._compression_quality
+            wand_image.colorspace = self._colorspace
+            assert self._img_options is not None and wand_image.options is not None
+            for opt, val in self._img_options.items():
+                if opt.startswith("dds:"):
+                    wand_image.options[opt] = val
+            wand_image.save(filename=path)
+            print("Special DDS handled (saving)")
+
+        else:
+            self.texture.image.save(self.filepath)
 
     def reduce(
         self, minwidth: int, minheight: int, minquality: float

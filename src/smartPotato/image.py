@@ -5,8 +5,16 @@ import io
 import os
 import wand.image as wimage
 import quicktex.dds as qtx
+import subprocess
+import tempfile
 
 from .texture import *
+
+# Create a temp directory
+tempdir = tempfile.TemporaryDirectory(suffix=None, prefix=None, dir=None)
+tempImageFilepath = pt.join(tempdir.name, "image.png")
+with open(tempImageFilepath, "w") as fp:
+    pass
 
 # Get a set of supported file extensions
 supported_extensions = {
@@ -27,37 +35,65 @@ class ConversionData:
     quality: float
 
 
-class ImageHandler:
-    def __init__(self, file_path):
-        self.filepath = file_path
-        if pt.splitext(self.filepath)[1].lower() == ".dds":
-            try:
-                dds_image = qtx.read(self.filepath)
-                dds_image.format
+@dataclass
+class NVTT:
+    nvttDir: str
+    nvdecompressPath: str
+    nvcompressPath: str
+    nvddsinfoPath: str
 
-                wand_image = wimage.Image(filename=self.filepath)
-                self._compression = wand_image.compression
-                self._colorspace = wand_image.colorspace
-                self._compression_quality = wand_image.compression_quality
-                self._img_options = wand_image.options
-                img_blob = wand_image.make_blob("bmp")
-                assert img_blob is not None
-                self.texture = Texture(im.open(io.BytesIO(img_blob)))
-                print(
-                    f"Special DDS handled (loading) compression {self._compression} quality {self._compression_quality} colorspace {self._colorspace}"
-                )
-            except Exception as e:
-                print(f"Failed to load special DDS: {e}")
-                print("Defaulting to PIL loading")
-                self._compression = "dxt5"
-                self._colorspace = "srgb"
-                self._compression_quality = 1.0
-                self._img_options = {
-                    "dds:compression": self._compression,
-                    "dds:mipmaps": "8",
-                    "dds:cluster-fit": "false",
-                }
-                self.texture = Texture(im.open(file_path))
+
+class ImageHandler:
+
+    def __init__(self, file_path, nvttDirInfo: NVTT):
+        self.filepath = file_path
+        self.nvttDirInfo = nvttDirInfo
+        if pt.splitext(self.filepath)[1].lower() == ".dds":
+            assert (
+                nvttDirInfo is not None
+            ), "Please provide an NVidia Texture Tools directory for DDS handling. Skipping!"
+
+            p = subprocess.Popen(
+                [nvttDirInfo.nvddsinfoPath, self.filepath],
+                stdout=subprocess.PIPE,
+            )
+            pout, _ = p.communicate()
+            infostr = pout.decode("utf-8")
+            if "'DXT1'" in infostr:
+                self.compressionOpt = "-bc1"
+            elif "'DXT1nm'" in infostr:
+                self.compressionOpt = "-bc1n"
+            elif "'DXT1a'" in infostr:
+                self.compressionOpt = "-bc1a"
+            elif "'DXT3'" in infostr:
+                self.compressionOpt = "-bc2"
+            elif "'DXT5'" in infostr:
+                self.compressionOpt = "-bc3"
+            elif "'DXT5nm'" in infostr:
+                self.compressionOpt = "-bc3n"
+            elif "'ATI1'" in infostr:
+                self.compressionOpt = "-bc4"
+            elif "'ATI2'" in infostr:
+                self.compressionOpt = "-ati2"
+            elif "'DX10'" in infostr:
+                self.compressionOpt = "-bc7"
+            else:
+                print(f"Unknown compression format from nvddsinfo dump: '{infostr}'")
+                self.compressionOpt = "-bc3"
+
+            # decompress to a temporary file in tmp folder
+
+            subprocess.call(
+                [
+                    nvttDirInfo.nvdecompressPath,
+                    "-format",
+                    "png",
+                    self.filepath,
+                    tempImageFilepath,
+                ]
+            )
+            self.texture = Texture(im.open(tempImageFilepath))
+            os.remove(tempImageFilepath)
         else:
             self.texture = Texture(im.open(file_path))
 
@@ -69,18 +105,17 @@ class ImageHandler:
         self.texture = texture
 
         if pt.splitext(self.filepath)[1].lower() == ".dds":
-            temp = io.BytesIO()
-            self.texture.image.save(temp, format="bmp")
-            wand_image = wimage.Image(blob=temp.getvalue())
-            wand_image.compression = self._compression
-            # wand_image.compression_quality = self._compression_quality
-            wand_image.colorspace = self._colorspace
-            assert self._img_options is not None and wand_image.options is not None
-            for opt, val in self._img_options.items():
-                if opt.startswith("dds:"):
-                    wand_image.options[opt] = val
-            wand_image.save(filename=path)
-            print("Special DDS handled (saving)")
+            self.texture.image.save(tempImageFilepath)
+            subprocess.call(
+                [
+                    self.nvttDirInfo.nvcompressPath,
+                    self.compressionOpt,
+                    "-production",
+                    tempImageFilepath,
+                    path,
+                ]
+            )
+            os.remove(tempImageFilepath)
 
         else:
             self.texture.image.save(self.filepath)

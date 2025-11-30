@@ -125,6 +125,41 @@ def main():
 
         verbose = True
 
+    # --nvtt
+    nvttDirInfo: NVTT = None
+
+    def opt_nvtt(args: Iterator[str]):
+        nonlocal nvttDirInfo
+
+        nvttDir = next(args)
+        assert os.path.isdir(nvttDir), f"'{nvttDir}' is not recognized as a directory"
+
+        assert os.path.exists(os.path.join(nvttDir, "nvdecompress")) or os.path.exists(
+            os.path.join(nvttDir, "nvdecompress.exe")
+        ), f"nvdecompress not found in the nvtt directory"
+
+        assert os.path.exists(os.path.join(nvttDir, "nvcompress")) or os.path.exists(
+            os.path.join(nvttDir, "nvcompress.exe")
+        ), f"nvcompress not found in the nvtt directory"
+
+        assert os.path.exists(os.path.join(nvttDir, "nvddsinfo")) or os.path.exists(
+            os.path.join(nvttDir, "nvddsinfo.exe")
+        ), f"nvddsinfo not found in the nvtt directory"
+
+        nvdecompressPath = os.path.join(nvttDir, "nvdecompress")
+        if not os.path.exists(nvdecompressPath):
+            nvdecompressPath = os.path.join(nvttDir, "nvdecompress.exe")
+
+        nvcompressPath = os.path.join(nvttDir, "nvcompress")
+        if not os.path.exists(nvcompressPath):
+            nvcompressPath = os.path.join(nvttDir, "nvcompress.exe")
+
+        nvddsinfoPath = os.path.join(nvttDir, "nvddsinfo")
+        if not os.path.exists(nvddsinfoPath):
+            nvddsinfoPath = os.path.join(nvttDir, "nvddsinfo.exe")
+
+        nvttDirInfo = NVTT(nvttDir, nvdecompressPath, nvcompressPath, nvddsinfoPath)
+
     # Option list
     supportedOptions = {
         "--file": opt_file,
@@ -138,6 +173,7 @@ def main():
         "--mindimension": opt_mindimension,
         "-m": opt_mindimension,
         "--verbose": opt_verbose,
+        "--nvtt": opt_nvtt,
     }
 
     # parse argvs and execute the related functions
@@ -189,7 +225,7 @@ def main():
                     outpath = os.path.join(outputPrefix, f.filepath)
 
                     try:
-                        handler = ImageHandler(inpath)
+                        handler = ImageHandler(inpath, nvttDirInfo)
                     except Exception as e:
                         print(f"Error loading {inpath}: {e}", file=sys.stderr)
                         continue

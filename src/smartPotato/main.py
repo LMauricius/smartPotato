@@ -265,6 +265,8 @@ def main():
 
                         # create the directory structure if it doesn't exist
                         os.makedirs(os.path.dirname(outpath), exist_ok=True)
+                        if verbose:
+                            print(f"    Saving to `{outpath}`")
                         handler.saveReplacement(newtex, outpath)
                 except Exception as e:
                     print(

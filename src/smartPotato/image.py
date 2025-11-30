@@ -4,7 +4,6 @@ from os import path as pt
 import io
 import os
 import wand.image as wimage
-import quicktex.dds as qtx
 import subprocess
 import tempfile
 
@@ -118,7 +117,7 @@ class ImageHandler:
             os.remove(tempImageFilepath)
 
         else:
-            self.texture.image.save(self.filepath)
+            self.texture.image.save(path)
 
     def reduce(
         self, minwidth: int, minheight: int, minquality: float
